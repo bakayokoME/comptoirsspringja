@@ -1,7 +1,11 @@
 package comptoirs.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
+import comptoirs.entity.Ligne;
+import comptoirs.entity.Produit;
+import lombok.val;
 import org.springframework.stereotype.Service;
 
 import comptoirs.dao.ClientRepository;
@@ -48,5 +52,38 @@ public class CommandeService {
         // On enregistre la commande (génère la clé)
         commandeDao.save(nouvelleCommande);
         return nouvelleCommande;
+    }
+
+    /**
+     * Service métier : Enregistre l'expédition d'une commande connue par sa clé
+     * Règles métier :
+     * - la commande doit exister
+     * - la commande ne doit pas être déjà envoyée (le champ 'envoyeele' doit être null)
+     * - On met à jour la date d'expédition (envoyeele) avec la date du jour
+     * - Pour chaque produit commandé, décrémente la quantité en stock (Produit.unitesEnStock)
+     *   de la quantité commandée
+     * @param commandeNum la clé de la commande
+     * @return la commande mise à jour
+     */
+    @Transactional
+    public Commande enregistreExpédition(Integer commandeNum) {
+        //verification de l'existance de la commende
+        var commande = commandeDao.findById(commandeNum).orElseThrow();
+        //la commande ne doit pas être déjà envoyée
+        Commande c  = new Commande();
+        if (commande.getEnvoyeele()==null){
+            throw new IllegalArgumentException();
+        }
+        //on met a jour la date d'expedition
+        commande.setEnvoyeele(LocalDate.now());
+        //Pour chaque produit commandé, décrémente la quantité en stock (Produit.unitesEnStock)
+        for ( Ligne l:c.getLignes()){
+            Produit p = l.getProduit();
+            int  unitesEnStock = p.getUnitesEnStock();
+            unitesEnStock -= l.getQuantite();
+            l.setQuantite(unitesEnStock);
+        }
+        //retournons la commande
+        return c;
     }
 }
